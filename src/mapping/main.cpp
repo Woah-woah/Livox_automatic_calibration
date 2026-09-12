@@ -104,13 +104,13 @@ int main(void)
     char filename[] = "../data/T_Matrix.txt";
     ofstream fout(filename);
 
-    pcl::visualization::CloudViewer viewer("Cloud Viewer");
+    // pcl::visualization::CloudViewer viewer("Cloud Viewer");
     
     LivoxSLAM.Initialize();
 
    //================== Step.2 building submap =====================//
 
-    while (!viewer.wasStopped())  
+    while (true)  
     {
         while (frame_count < framenumbers + 100000)
         
@@ -136,7 +136,7 @@ int main(void)
             tf.block(0, 3, 3, 1) = T;
             fout << tf.matrix() << endl;
 
-            viewer.showCloud(LivoxSLAM.mapper_.map_data_);
+            // viewer.showCloud(LivoxSLAM.mapper_.map_data_);
             
             frame_count++;
             cframe_count++;

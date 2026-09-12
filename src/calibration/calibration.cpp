@@ -79,7 +79,7 @@ void printProgress(double percentage)
     fflush(stdout);
 }
 
-char framesDir[100] = "../data/Target-LiDAR-Frames";
+char framesDir[100] = "../data/Target_LiDAR_Frames";
 
 std::string itos(int i)
 {
@@ -146,17 +146,17 @@ int main()
     icp.setRANSACIterations(0);
     icp.setMaximumOptimizerIterations(50); // default 20
 
-    //=================================
-    //prepare display
-    boost::shared_ptr<pcl::visualization::PCLVisualizer>
-        viewer_final(new pcl::visualization::PCLVisualizer("3D Viewer"));
-    viewer_final->setBackgroundColor(0, 0, 0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> map_color(H_LiDAR_Map, 255, 0, 0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> match_color(H_LiDAR_Map, 0, 255, 0);
+    // //=================================
+    // //prepare display
+    // boost::shared_ptr<pcl::visualization::PCLVisualizer>
+    //     viewer_final(new pcl::visualization::PCLVisualizer("3D Viewer"));
+    // viewer_final->setBackgroundColor(0, 0, 0);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> map_color(H_LiDAR_Map, 255, 0, 0);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> match_color(H_LiDAR_Map, 0, 255, 0);
 
-    viewer_final->addPointCloud<pcl::PointXYZ>(H_LiDAR_Map, map_color, "target cloud");
-    viewer_final->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "target cloud");
-    viewer_final->addPointCloud<pcl::PointXYZ>(H_LiDAR_Map, match_color, "match cloud"); //display the match cloud
+    // viewer_final->addPointCloud<pcl::PointXYZ>(H_LiDAR_Map, map_color, "target cloud");
+    // viewer_final->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "target cloud");
+    // viewer_final->addPointCloud<pcl::PointXYZ>(H_LiDAR_Map, match_color, "match cloud"); //display the match cloud
 
     //=================================
     // prepare save matrix
@@ -169,7 +169,7 @@ int main()
     //=================================
     //              START
     //=================================
-    while (!viewer_final->wasStopped())
+    while (true)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr frames(new pcl::PointCloud<pcl::PointXYZ>);
         if (pcl::io::loadPCDFile<pcl::PointXYZ>(string(framesDir) + "/" + itos(frame_count) + ".pcd", *frames) == -1)
@@ -258,8 +258,8 @@ int main()
         cframe_count++;
 
         printProgress((double)cframe_count / (double)framenumbers);
-        viewer_final->updatePointCloud<pcl::PointXYZ>(final_output_cloud, match_color, "match cloud");
-        viewer_final->spinOnce(10);
+        // viewer_final->updatePointCloud<pcl::PointXYZ>(final_output_cloud, match_color, "match cloud");
+        // viewer_final->spinOnce(10);
 
         if (cframe_count == framenumbers)
         {

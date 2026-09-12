@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.10 FATAL_ERROR)
 
 PROJECT(livox_calibration)
 set(CMAKE_BUILD_TYPE Release) # this is Important ! ! ! ! !
@@ -10,7 +10,9 @@ add_definitions(${PCL_DEFINITIONS})
 
 include_directories(${PCL_INCLUDE_DIRS} include)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 FILE(GLOB SRCS0 src/mapping/*.cpp)
 FILE(GLOB SRCS1 src/calibration/*.cpp)

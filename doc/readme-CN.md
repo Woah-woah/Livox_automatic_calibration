@@ -47,7 +47,7 @@ make
 **注意**：基准雷达数据和待标定雷达数据需要尽可能在时间上同步，文件名和时间戳为同步对应。
 
  **示例数据下载**  
- [**Target-LiDAR-Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Target-LiDAR-Frames.tar.gz)  
+ [**Target_LiDAR_Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Target_LiDAR_Frames.tar.gz)
  [**Base_LiDAR_Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Base_LiDAR_Frames.tar.gz)  
 
 ### **2.运行**
@@ -103,4 +103,3 @@ sh run.sh
 2.两雷达无overlap情况，将target雷达的点云使用标定结果外参旋转后，融合到base雷达点云（merge操作）。将融合后的点云存为pcd，运行mapping节点进行建图，观察建图结果。如果建图结果存在错层，说明标定结果错误，建议修改外参初值，确认地图建立的精度以后，重新进行标定和验证。
 
 **Developer: [Livox](https://www.livoxtech.com/)**
-

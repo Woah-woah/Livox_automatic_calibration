@@ -1,4 +1,4 @@
 #!/bin/bash 
-./mapping
-./calibration
-./fitline
+./build/mapping
+./build/calibration
+./build/fitline

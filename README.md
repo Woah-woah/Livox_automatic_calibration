@@ -49,7 +49,7 @@ This operation will generate three files, namely **mapping**, **calibration**, *
 **Note**: The base LiDAR data and the target LiDAR data need to be synchronized in time as much as possible, and the file name and time stamp correspond to synchronization.
 
 **Download example data set**  
- [**Target-LiDAR-Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Target-LiDAR-Frames.tar.gz)  
+ [**Target_LiDAR_Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Target_LiDAR_Frames.tar.gz)
  [**Base_LiDAR_Frames**](https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Showcase/Base_LiDAR_Frames.tar.gz)  
 
 
@@ -96,4 +96,3 @@ publisher={IEEE}
 ```
 
 **Developer: [Livox](https://www.livoxtech.com/)**
-
