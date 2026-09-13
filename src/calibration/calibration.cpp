@@ -44,6 +44,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <limits>
 #include <unistd.h>
 #include <dirent.h>
 #include <stdlib.h>
@@ -67,6 +68,47 @@ using namespace std;
 namespace gu = geometry_utils;
 
 #define PI (3.1415926535897932346f)
+namespace {
+
+constexpr double kDegToRad = PI / 180.0;
+constexpr double kMaxFitnessScore = 0.05;
+constexpr double kMaxCorrectionTranslation = 0.25;
+constexpr double kMaxCorrectionRotation = 6.0 * kDegToRad;
+
+bool ReadMatrix4f(std::istream& input, Eigen::Matrix4f* matrix)
+{
+    for (int row = 0; row != 4; ++row)
+    {
+        for (int col = 0; col != 4; ++col)
+        {
+            if (!(input >> (*matrix)(row, col)))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+Eigen::Matrix4f InverseRigidTransform(const Eigen::Matrix4f& transform)
+{
+    Eigen::Matrix4f inverse = Eigen::Matrix4f::Identity();
+    const Eigen::Matrix3f rotation = transform.block<3, 3>(0, 0);
+    const Eigen::Vector3f translation = transform.block<3, 1>(0, 3);
+    inverse.block<3, 3>(0, 0) = rotation.transpose();
+    inverse.block<3, 1>(0, 3) = -rotation.transpose() * translation;
+    return inverse;
+}
+
+double RotationAngle(const Eigen::Matrix3f& rotation)
+{
+    const double trace = static_cast<double>(rotation.trace());
+    double cos_angle = 0.5 * (trace - 1.0);
+    cos_angle = std::max(-1.0, std::min(1.0, cos_angle));
+    return std::acos(cos_angle);
+}
+
+}  // namespace
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
@@ -120,12 +162,22 @@ int main()
     Eigen::Matrix4f init_guess = Eigen::Matrix4f::Identity();
     Eigen::Matrix4f init_guess_0 = Eigen::Matrix4f::Identity();
 
-    for (int mat_i = 0; mat_i != 4; mat_i++)
+    if (!T_Mat_File.is_open())
     {
-        for (int mat_j = 0; mat_j != 4; mat_j++)
-        {
-            initFile >> init_guess(mat_i, mat_j);
-        }
+        std::cerr << "ERROR: cannot open ../data/T_Matrix.txt" << std::endl;
+        return -1;
+    }
+
+    if (!initFile.is_open())
+    {
+        std::cerr << "ERROR: cannot open ../data/Init_Matrix.txt" << std::endl;
+        return -1;
+    }
+
+    if (!ReadMatrix4f(initFile, &init_guess))
+    {
+        std::cerr << "ERROR: cannot read a 4x4 matrix from ../data/Init_Matrix.txt" << std::endl;
+        return -1;
     }
 
     init_guess_0 = init_guess;
@@ -143,7 +195,7 @@ int main()
     icp.setNumThreads(8);    // CPU 8 线程
     icp.setRegistrationType("GICP"); // 和原程序一样，先用 GICP，不先引入 VGICP 这个变量
     icp.setCorrespondenceRandomness(20); // GICP 每个点估计协方差时使用的邻居数
-    icp.setMaxCorrespondenceDistance(5.0);  // 原官方这里是 10m，太宽了, 但是改成1m完全标不出来
+    icp.setMaxCorrespondenceDistance(1.0);  // 官方地图近邻流程下限制错误结构吸附
     icp.setMaximumIterations(50); // 最大优化迭代次数
     icp.setTransformationEpsilon(1e-6);    // 平移收敛阈值
     icp.setRotationEpsilon(1e-6); // 旋转收敛阈值
@@ -169,6 +221,8 @@ int main()
     ofstream fout(filename);
     fout.setf(ios::fixed, ios::floatfield);
     fout.precision(7);
+    int accepted_count = 0;
+    int rejected_count = 0;
 
     //=================================
     //              START
@@ -178,48 +232,32 @@ int main()
         pcl::PointCloud<pcl::PointXYZ>::Ptr frames(new pcl::PointCloud<pcl::PointXYZ>);
         if (pcl::io::loadPCDFile<pcl::PointXYZ>(string(framesDir) + "/" + itos(frame_count) + ".pcd", *frames) == -1)
         {
-            PCL_ERROR("Couldn't read H_LiDAR_Map \n");
+            PCL_ERROR("Couldn't read Target_LiDAR frame \n");
             return (-1);
         }
         //std::cout << "Loaded " << frames->size() << " data points from frames" << std::endl;
 
         //Load H-LiDAR's Trajectory
-        for (int mat_i = 0; mat_i != 4; mat_i++)
+        if (!ReadMatrix4f(T_Mat_File, &T_Matrix))
         {
-            for (int mat_j = 0; mat_j != 4; mat_j++)
-            {
-                T_Mat_File >> T_Matrix(mat_i, mat_j);
-            }
+            std::cerr << "\nERROR: T_Matrix.txt ended before frame "
+                      << frame_count << std::endl;
+            return -1;
         }
 
         //================== Step.4 Start calibration =====================//
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr trans_output_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::PointCloud<pcl::PointXYZ>::Ptr final_output_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::transformPointCloud(*frames, *trans_output_cloud, init_guess); //Tiny_T * init_guess   ->update this matrix
+        pcl::transformPointCloud(*frames, *trans_output_cloud, init_guess_0);
+
         pcl::transformPointCloud(*trans_output_cloud, *final_output_cloud, T_Matrix);
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr neighbors_L(new pcl::PointCloud<pcl::PointXYZ>); //201 neighbors points from nap202
         maps.ApproxNearestNeighbors(*final_output_cloud, neighbors_L.get());
 
-        //INVERSE T_mat==============================
-        
-        gu::Transform3 inverse_mat;
-        inverse_mat.translation = gu::Vec3(T_Matrix(0, 3), T_Matrix(1, 3), T_Matrix(2, 3));
-        inverse_mat.rotation = gu::Rot3(T_Matrix(0, 0), T_Matrix(0, 1), T_Matrix(0, 2),
-                                        T_Matrix(1, 0), T_Matrix(1, 1), T_Matrix(1, 2),
-                                        T_Matrix(2, 0), T_Matrix(2, 1), T_Matrix(2, 2));
-
-        const gu::Transform3 estimate = gu::PoseInverse(inverse_mat); //integrated_estimate from config parameters
-        const Eigen::Matrix<double, 3, 3> T_Matrix_Inverse_R = estimate.rotation.Eigen();
-        const Eigen::Matrix<double, 3, 1> T_Matrix_Inverse_T = estimate.translation.Eigen();
-
-        Eigen::Matrix4d T_Matrix_Inverse;
-        T_Matrix_Inverse.block(0, 0, 3, 3) = T_Matrix_Inverse_R;
-        T_Matrix_Inverse.block(0, 3, 3, 1) = T_Matrix_Inverse_T;
-
-        //====== Core step ======//
-        
+        // Bring the local map neighbors back to the base LiDAR frame.
+        const Eigen::Matrix4f T_Matrix_Inverse = InverseRigidTransform(T_Matrix);
         pcl::PointCloud<pcl::PointXYZ>::Ptr neighbors_trans(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::transformPointCloud(*neighbors_L, *neighbors_trans, T_Matrix_Inverse);
 
@@ -229,21 +267,22 @@ int main()
         icp.align(*ICP_output_cloud);
         const Eigen::Matrix4f Tiny_T = icp.getFinalTransformation();
         const double fitness = icp.getFitnessScore();
-        //std::cout << "Score: " << icp.getFitnessScore() << std::endl;
+        const double correction_translation = Tiny_T.block<3, 1>(0, 3).norm();
+        const double correction_rotation = RotationAngle(Tiny_T.block<3, 3>(0, 0));
 
-        if (!icp.hasConverged() || !std::isfinite(fitness) || fitness > 1.0)
+        if (!icp.hasConverged() ||
+            !std::isfinite(fitness) ||
+            fitness > kMaxFitnessScore ||
+            correction_translation > kMaxCorrectionTranslation ||
+            correction_rotation > kMaxCorrectionRotation)
         {
-            //std::cout<<"not match, skip this"<<std::endl;
-            init_guess = init_guess_0; // 当前帧匹配失败，恢复最初初外参
-            //continue;
+            ++rejected_count;
         }
         else
         {
             Eigen::Matrix4f Final_Calib_T = Eigen::Matrix4f::Identity();
 
-            Final_Calib_T = Tiny_T * init_guess;
-            //std::cout << Final_Calib_T.matrix() << std::endl;
-            init_guess = Final_Calib_T;
+            Final_Calib_T = Tiny_T * init_guess_0;
 
             //===== Out put Euler angle =====//
             gu::Vector3 EulerAngle;
@@ -254,19 +293,16 @@ int main()
             const Eigen::Matrix<double, 3, 1> EulerAngle_T = EulerAngle.Eigen();
             //std::cout<<"EulerAngle:  "<<EulerAngle_T(0,0)<<"  "<<EulerAngle_T(1,0)<<"  "<<EulerAngle_T(2,0)<<"  "<<std::endl;
 
-            if (fitness < 0.1)
-            {
-                // fout << frame_count - 100000 << " " << icp.getFitnessScore() << " " << Final_Calib_T(0, 3) << " " << Final_Calib_T(1, 3) << " " << Final_Calib_T(2, 3) << " " << EulerAngle_T(0, 0) << " " << EulerAngle_T(1, 0) << " " << EulerAngle_T(2, 0) << endl; //x,y,z,roll,pitch,yaw
-                fout << frame_count - 100000 << " "
-                    << fitness << " "
-                    << Final_Calib_T(0, 3) << " "
-                    << Final_Calib_T(1, 3) << " "
-                    << Final_Calib_T(2, 3) << " "
-                    << EulerAngle_T(0, 0) << " "
-                    << EulerAngle_T(1, 0) << " "
-                    << EulerAngle_T(2, 0)
-                    << endl;
-            }
+            fout << frame_count - 100000 << " "
+                << fitness << " "
+                << Final_Calib_T(0, 3) << " "
+                << Final_Calib_T(1, 3) << " "
+                << Final_Calib_T(2, 3) << " "
+                << EulerAngle_T(0, 0) << " "
+                << EulerAngle_T(1, 0) << " "
+                << EulerAngle_T(2, 0)
+                << endl;
+            ++accepted_count;
         }
 
         frame_count++;
@@ -279,6 +315,8 @@ int main()
         if (cframe_count == framenumbers)
         {
             std::cout << "\n Matching complete." << std::endl;
+            std::cout << "Accepted frames: " << accepted_count
+                      << ", rejected frames: " << rejected_count << std::endl;
             break;
         }
     }
