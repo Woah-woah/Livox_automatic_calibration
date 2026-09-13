@@ -93,7 +93,11 @@ int FitLine2D(Point2D32f * points, int count, float *line)
 	 	WeightL1( dist, count, W);
 		FitLine2D(points, count, W, line);
 	}
-	delete [] dist;
+
+    delete [] dist;
+    delete [] W;
+
+    return 0;
 }
 
 void WeightL1( float *d, int count, float *w )

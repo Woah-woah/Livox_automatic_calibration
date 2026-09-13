@@ -49,7 +49,7 @@ float Ransac(Point2D32f* points, size_t Cnt, float *line)
 		for(int k = 0; k < Cnt; k++)
 		{
 			//如果在直线上或者附近
-			if(abs(points[k].y - a*points[k].x - b) < 2)
+			if(abs(points[k].y - a*points[k].x - b) < 0.005)
 			{
 				voteCnt++;
 			}
@@ -72,6 +72,10 @@ float Ransac(Point2D32f* points, size_t Cnt, float *line)
 //			return inliersPercentage;
 //		}
 	}
+
+	delete [] Chosen;
+	delete [] subPoints;
+
 	return inliersPercentage;
 
 }
@@ -140,7 +144,7 @@ float Ransac
 		for(int k = 0; k < Cnt; k++)
 		{
 			//如果在直线上或者附近
-			if(abs(points[k].y - a*points[k].x - b) < 2)
+			if(abs(points[k].y - a*points[k].x - b) < 0.005)
 			{
 				voteCnt++;
 			}
@@ -163,6 +167,10 @@ float Ransac
 //			return inliersPercentage;
 //		}
 	}
+
+	delete [] Chosen;
+	delete [] subPoints;
+
 	return inliersPercentage;
 }
             

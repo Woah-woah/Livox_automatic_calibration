@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include <cstdlib>
 #include <cstdio>
+#include <cmath>
 #include <ctime>
 #include <sstream>
 #include <fstream>
@@ -54,7 +55,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/approximate_voxel_grid.h>
-#include <pcl/registration/gicp.h>
+#include <small_gicp/pcl/pcl_registration.hpp>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -136,15 +137,18 @@ int main()
     int cframe_count = 0;
     cout << "Loaded " << framenumbers << " frames from Target-LiDAR" << endl;
 
-    //=================================
-    //prepare ICP
-    pcl::PointCloud<pcl::PointXYZ>::Ptr ICP_output_cloud(new pcl::PointCloud<pcl::PointXYZ>); //not use,but necessary
-    pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-    icp.setTransformationEpsilon(0.0000000001); //0.0000000001
-    icp.setMaxCorrespondenceDistance(10);
-    icp.setMaximumIterations(35);
-    icp.setRANSACIterations(0);
-    icp.setMaximumOptimizerIterations(50); // default 20
+    //================== small_gicp ==================//
+    pcl::PointCloud<pcl::PointXYZ>::Ptr ICP_output_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    small_gicp::RegistrationPCL<pcl::PointXYZ, pcl::PointXYZ> icp; // small_gicp PCL-compatible interface
+    icp.setNumThreads(8);    // CPU 8 线程
+    icp.setRegistrationType("GICP"); // 和原程序一样，先用 GICP，不先引入 VGICP 这个变量
+    icp.setCorrespondenceRandomness(20); // GICP 每个点估计协方差时使用的邻居数
+    icp.setMaxCorrespondenceDistance(5.0);  // 原官方这里是 10m，太宽了, 但是改成1m完全标不出来
+    icp.setMaximumIterations(50); // 最大优化迭代次数
+    icp.setTransformationEpsilon(1e-6);    // 平移收敛阈值
+    icp.setRotationEpsilon(1e-6); // 旋转收敛阈值
+    icp.setVerbosity(false); // 不刷 small_gicp 内部日志
+    //================================================//
 
     // //=================================
     // //prepare display
@@ -224,13 +228,13 @@ int main()
         icp.setInputTarget(neighbors_trans);    //202 (201's neighbor's point cloud)
         icp.align(*ICP_output_cloud);
         const Eigen::Matrix4f Tiny_T = icp.getFinalTransformation();
-
+        const double fitness = icp.getFitnessScore();
         //std::cout << "Score: " << icp.getFitnessScore() << std::endl;
 
-        if (icp.getFitnessScore() > 1)
+        if (!icp.hasConverged() || !std::isfinite(fitness) || fitness > 1.0)
         {
             //std::cout<<"not match, skip this"<<std::endl;
-            init_guess = init_guess_0;
+            init_guess = init_guess_0; // 当前帧匹配失败，恢复最初初外参
             //continue;
         }
         else
@@ -250,8 +254,19 @@ int main()
             const Eigen::Matrix<double, 3, 1> EulerAngle_T = EulerAngle.Eigen();
             //std::cout<<"EulerAngle:  "<<EulerAngle_T(0,0)<<"  "<<EulerAngle_T(1,0)<<"  "<<EulerAngle_T(2,0)<<"  "<<std::endl;
 
-            if (icp.getFitnessScore() < 0.1)
-                fout << frame_count - 100000 << " " << icp.getFitnessScore() << " " << Final_Calib_T(0, 3) << " " << Final_Calib_T(1, 3) << " " << Final_Calib_T(2, 3) << " " << EulerAngle_T(0, 0) << " " << EulerAngle_T(1, 0) << " " << EulerAngle_T(2, 0) << endl; //x,y,z,roll,pitch,yaw
+            if (fitness < 0.1)
+            {
+                // fout << frame_count - 100000 << " " << icp.getFitnessScore() << " " << Final_Calib_T(0, 3) << " " << Final_Calib_T(1, 3) << " " << Final_Calib_T(2, 3) << " " << EulerAngle_T(0, 0) << " " << EulerAngle_T(1, 0) << " " << EulerAngle_T(2, 0) << endl; //x,y,z,roll,pitch,yaw
+                fout << frame_count - 100000 << " "
+                    << fitness << " "
+                    << Final_Calib_T(0, 3) << " "
+                    << Final_Calib_T(1, 3) << " "
+                    << Final_Calib_T(2, 3) << " "
+                    << EulerAngle_T(0, 0) << " "
+                    << EulerAngle_T(1, 0) << " "
+                    << EulerAngle_T(2, 0)
+                    << endl;
+            }
         }
 
         frame_count++;

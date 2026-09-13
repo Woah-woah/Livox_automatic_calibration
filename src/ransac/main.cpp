@@ -20,13 +20,12 @@ int main()
         //========Read calibration data========//
 
         double id, score, x, y, z, roll, yaw, pitch;
-        double  x_0, y_0, z_0, roll_0, yaw_0, pitch_0;
+        double  x_0 = 0.0, y_0 = 0.0, z_0 = 0.0, roll_0 = 0.0, yaw_0 = 0.0, pitch_0 = 0.0;
 
         ifstream calib_FileA("../data/calib_data.txt");
         int filecount = 0;
-        while (!calib_FileA.eof())
+        while (calib_FileA >> id >> score >> x >> y >> z >> roll >> pitch >> yaw)
         {
-                calib_FileA >> id >> score >> x >> y >> z >> roll >> pitch >> yaw;
                 filecount++;
         }
         calib_FileA.close();
@@ -44,10 +43,8 @@ int main()
         Point2D32f points_pitch[filecount];
         Point2D32f points_yaw[filecount];
 
-        while (!calib_File.eof())
+        while (calib_File >> id >> score >> x >> y >> z >> roll >> pitch >> yaw)
         {
-                calib_File >> id >> score >> x >> y >> z >> roll >> pitch >> yaw;
-
                 points_x[count].x = id;
                 points_x[count].y = x;
 
@@ -82,11 +79,11 @@ int main()
         pitch_0=pitch_0/filecount;
         yaw_0=yaw_0/filecount;
 
-     /*   float lines[4] = {0.0}; //line parameters
+        float lines[4] = {0.0}; //line parameters
 
         int numForEstimate = 5;
         float successProbability = 0.9999f;
-        float maxOutliersPercentage = 0.9; //(float)outlierCnt/COUNT; 0.9
+        float maxOutliersPercentage = 0.5; //(float)outlierCnt/COUNT; 0.9
         float a, b;
 
         Ransac(points_x, filecount, lines, numForEstimate, successProbability, maxOutliersPercentage);
@@ -124,7 +121,7 @@ int main()
         b = lines[3] - a * lines[2];
         printf("yaw ransac fit(including outliers): a: %f  yaw: %f\n", a, b);
         yaw = b;
-*/
+
         calib_File.close();
 
         cout << endl;
