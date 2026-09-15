@@ -9,7 +9,9 @@
 ## 依赖库
 Cmake, PCL1.7, Eigen
 建议直接安装ROS，包含了以上的库
+需要small_gicp库，将icp更换为了small_gicp，https://github.com/koide3/small_gicp.git
 
+humble jazzy无需install
 ```
 sudo apt-get install ros-kinetic-cv-bridge ros-kinetic-tf ros-kinetic-message-filters ros-kinetic-image-transport
 
@@ -27,9 +29,9 @@ make
 
 生成三个文件，分别是**mapping**, **calibration**, **fitline**　  
 
-* **mapping:** 可视化建图工具　　
+* **mapping:** 可视化建图工具，增加：LIO直接输出mapping需要的pcd数据，删除：可视化
 
-* **calibration:** 可视化自动标定工具　　
+* **calibration:** 可视化自动标定工具，删除：可视化
 
 * **fitline:**　拟合标定参数，计算最终参数矩阵　　
 
@@ -52,10 +54,10 @@ make
 
 ### **2.运行**
 ```
-cd livox_calibration
-cp run.sh build/
-cd build
-sh run.sh
+cd livox_calibration && cd build
+./mapping
+./calibration
+./fitline
 
 ```
 脚本首先启动可视化建图程序**mapping**，用基准雷达建立子地图，自动生成待匹配地图数据H-LiDAR-Map-data.pcd文件。建立完成后启动标定程序**calibration**，完成标定参数估计工作，最后启动

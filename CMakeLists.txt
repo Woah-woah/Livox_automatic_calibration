@@ -6,6 +6,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 find_package(PCL 1.7 REQUIRED)
 find_package(small_gicp REQUIRED)
+find_package(Ceres REQUIRED)
 
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
@@ -41,6 +42,7 @@ target_link_libraries(
     calibration
     ${PCL_LIBRARIES}
     ${LIBS}
+    Ceres::ceres
     small_gicp::small_gicp
 )
 
